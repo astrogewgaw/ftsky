@@ -18,9 +18,8 @@ ENV PSRCAT_FILE=$HOME/software/psrcat_tar/psrcat.db
 
 USER root
 
-RUN apt-get update
-
-RUN apt-get install -y \
+RUN apt-get update && \
+    apt-get install -y \
 	git \
     	autoconf \
     	libtool \
