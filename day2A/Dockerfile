@@ -6,11 +6,16 @@ RUN useradd -ms /bin/bash ftsky
 ENV HOME=/home/ftsky
 ENV DEBIAN_FRONTEND=noninteractive
 
+USER ftsky
+WORKDIR $HOME
+RUN mkdir software
+
 USER root
 
-RUN apt-get -qq update && \
-    apt-get -qq install -y \
+RUN apt-get update && \
+    apt-get install -y \
     git \
+    wget \
     cmake \
     build-essential \
     g++ \
@@ -18,11 +23,15 @@ RUN apt-get -qq update && \
     casacore-data \
     casacore-dev \
     casacore-tools \
-    libblas-dev liblapack-dev \
+    libblas-dev \
+    liblapack-dev \
     python3 \
     libpython3-dev \
-    libboost-date-time-dev libboost-test-dev \
-    libboost-program-options-dev libboost-system-dev libboost-filesystem-dev \
+    libboost-date-time-dev \
+    libboost-test-dev \
+    libboost-program-options-dev \
+    libboost-system-dev \
+    libboost-filesystem-dev \
     libcfitsio-dev \
     libfftw3-dev \
     libgsl-dev \
@@ -34,53 +43,33 @@ RUN apt-get -qq update && \
     python3-pytest \
     python3-sphinx \
     python3-casacore \
-    python3-setuptools \
-    wget \
-    nvidia-cuda-toolkit
+    python3-setuptools
 
-# Install EveryBeam
-RUN mkdir /external && \
-    cd /external && \
-    git clone \
+WORKDIR $HOME/software
+RUN git clone \
 	--depth 1 \
-	--branch v0.6.2 \
-	--single-branch https://git.astron.nl/RD/EveryBeam.git && \
-    mkdir /external/EveryBeam/build && \
-    cd /external/EveryBeam/build && \
-    cmake ../ && \
-    make install -j`nproc`
-
-# Install IDG
-RUN cd /external && \
-    git clone \
-	--depth 1 \
-	--branch 1.2.0 \
-	--single-branch https://git.astron.nl/RD/idg.git && \
-    mkdir /external/idg/build && \
-    cd /external/idg/build && \
-    cmake -DBUILD_LIB_CPU=ON \
-          -DBUILD_LIB_CUDA=ON \
-          -DBUILD_WITH_PYTHON=ON ../ && \
-    make install -j`nproc`
-
-# Install WSClean
-RUN git clone --depth 1 --branch v3.5 https://gitlab.com/aroffringa/wsclean
-WORKDIR /wsclean
-RUN \
-    mkdir /build && \
-    cd /build && \
-    cmake ../wsclean \
+        --branch v3.5 \
+	https://gitlab.com/aroffringa/wsclean.git && \
+    cd wsclean && \
+    mkdir build && \
+    cd build && \
+    cmake $HOME/software/wsclean \
 	-DPORTABLE=True \
-    	-DCMAKE_PREFIX_PATH="/usr/local;/external/idg/build" \
-	-DIDGAPI_VERSION=1.2.0 && \
+    	-DCMAKE_PREFIX_PATH="/usr/local" && \
     make -j`nproc` && \
-    make install && \
-    wsclean --version
+    make install -j`nproc`
 
-# Download and install CASA.
+WORKDIR $HOME/software
 RUN wget --no-check-certificate https://casa.nrao.edu/download/distro/casa/release/rhel/casa-6.6.4-34-py3.10.el8.tar.xz && \
     tar xf casa-6.6.4-34-py3.10.el8.tar.xz && \
     rm -rf casa-6.6.4-34-py3.10.el8.tar.xz
+ENV PATH=$HOME/software/casa-6.6.4-34-py3.10.el8/bin:$PATH
 
 USER ftsky
 WORKDIR $HOME
+
+RUN mkdir ~/.casa
+RUN mkdir ~/.casa/data
+RUN casa --log2term -c "exit"
+ENV CASASITECONFIG=$HOME/.casa/config.py
+COPY --chown=ftsky:ftsky config.py $HOME/.casa/config.py
