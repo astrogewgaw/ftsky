@@ -16,29 +16,26 @@ ENV TEMPO2=$HOME/software/tempo2/T2runtime
 ENV YMW16_DIR=$HOME/software/XLibs/src/ymw16
 ENV PSRCAT_FILE=$HOME/software/psrcat_tar/psrcat.db
 
-USER root
-
-RUN apt-get update && \
-    apt-get install -y \
-	git \
-    	autoconf \
-    	libtool \
-    	g++ \
-    	gfortran \
-    	libboost-program-options-dev \
-    	libboost-log-dev \
-    	libcfitsio-dev \
-    	libblas-dev \
-    	liblapack-dev \
-    	libeigen3-dev \
-    	libpng-dev \
-    	libfftw3-dev \
-    	pgplot5 \
-    	wget \
-    	make \
+RUN apt-get update && apt-get install -y --no-install-recommends \
 	cmake \
+	git \
 	mpich \
-    	libx11-dev
+  autoconf \
+  g++ \
+  gfortran \
+  libblas-dev \
+  libboost-log-dev \
+  libboost-program-options-dev \
+  libcfitsio-dev \
+  libeigen3-dev \
+  libfftw3-dev \
+  liblapack-dev \
+  libpng-dev \
+  libtool \
+  libx11-dev \
+  make \
+  pgplot5 \
+  wget
 
 USER ftsky
 WORKDIR $HOME
@@ -55,16 +52,11 @@ ENV MAMBA_ROOT_PREFIX=$HOME/software/conda
 ENV MAMBA_EXE=$HOME/software/bin/micromamba
 
 COPY --from=micromamba "/bin/micromamba" "$MAMBA_EXE"
-COPY --from=micromamba 	/usr/local/bin/_activate_current_env.sh \
-		 	/usr/local/bin/_activate_current_env.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_shell.sh \
-			/usr/local/bin/_dockerfile_shell.sh
-COPY --from=micromamba 	/usr/local/bin/_entrypoint.sh \
-			/usr/local/bin/_entrypoint.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_initialize_user_accounts.sh \
-			/usr/local/bin/_dockerfile_initialize_user_accounts.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_setup_root_prefix.sh \
-			/usr/local/bin/_dockerfile_setup_root_prefix.sh
+COPY --from=micromamba 	/usr/local/bin/_activate_current_env.sh /usr/local/bin/_activate_current_env.sh
+COPY --from=micromamba 	/usr/local/bin/_dockerfile_shell.sh /usr/local/bin/_dockerfile_shell.sh
+COPY --from=micromamba 	/usr/local/bin/_entrypoint.sh /usr/local/bin/_entrypoint.sh
+COPY --from=micromamba 	/usr/local/bin/_dockerfile_initialize_user_accounts.sh /usr/local/bin/_dockerfile_initialize_user_accounts.sh
+COPY --from=micromamba 	/usr/local/bin/_dockerfile_setup_root_prefix.sh /usr/local/bin/_dockerfile_setup_root_prefix.sh
 
 RUN /usr/local/bin/_dockerfile_initialize_user_accounts.sh && \
     /usr/local/bin/_dockerfile_setup_root_prefix.sh
@@ -153,5 +145,13 @@ RUN ./configure \
 RUN make -j 8 && make install
 RUN make clean
 
-USER ftsky
+RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
+    echo "set tabstop=4" >> $HOME/.vimrc && \
+    echo "set shiftwidth=4" >> $HOME/.vimrc && \
+    echo "set expandtab" >> $HOME/.vimrc && \
+    echo "set pastetoggle=<F2>" >> $HOME/.vimrc && \
+    echo "set hlsearch" >> $HOME/.vimrc && \
+    echo "syntax on" >> $HOME/.vimrc
+
 WORKDIR $HOME
+ENTRYPOINT [ "/bin/bash" ]
