@@ -6,6 +6,12 @@ RUN useradd -ms /bin/bash ftsky
 
 ENV HOME=/home/ftsky
 
+USER ftsky
+WORKDIR $HOME
+RUN mkdir software
+
+USER root
+
 ENV LD_LIBRARY_PATH=$HOME/software/lib:/usr/local/lib
 ENV PATH=$PATH:$HOME/software/bin:$HOME/.local/bin
 ENV DEBIAN_FRONTEND=noninteractive
@@ -16,13 +22,14 @@ ENV TEMPO2=$HOME/software/tempo2/T2runtime
 ENV YMW16_DIR=$HOME/software/XLibs/src/ymw16
 ENV PSRCAT_FILE=$HOME/software/psrcat_tar/psrcat.db
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-	cmake \
-	git \
-	mpich \
+RUN apt-get update && apt-get install -y \
   autoconf \
+  cmake \
+  eog \
+  evince \
   g++ \
   gfortran \
+  git \
   libblas-dev \
   libboost-log-dev \
   libboost-program-options-dev \
@@ -34,14 +41,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libtool \
   libx11-dev \
   make \
+  mpich \
   pgplot5 \
   wget
-
-USER ftsky
-WORKDIR $HOME
-RUN mkdir software
-
-USER root
 
 ARG MAMBA_USER=ftsky
 ARG MAMBA_USER_ID=1001
@@ -62,7 +64,6 @@ RUN /usr/local/bin/_dockerfile_initialize_user_accounts.sh && \
     /usr/local/bin/_dockerfile_setup_root_prefix.sh
 
 USER ftsky
-
 SHELL ["/usr/local/bin/_dockerfile_shell.sh"]
 RUN micromamba install -y -n base --channel conda-forge python==3.10 && \
     micromamba clean --all --yes
@@ -85,7 +86,7 @@ RUN git clone https://github.com/liberfa/erfa.git
 WORKDIR $HOME/software/erfa
 RUN ./bootstrap.sh
 RUN ./configure --prefix=$HOME/software
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 
 WORKDIR $HOME/software
 RUN git clone https://bitbucket.org/psrsoft/tempo2.git
@@ -93,7 +94,7 @@ WORKDIR $HOME/software/tempo2
 RUN rm -rf .git
 RUN ./bootstrap
 RUN ./configure --prefix=$HOME/software
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 RUN make plugins-install
 RUN make clean
 
@@ -116,13 +117,13 @@ RUN ./configure \
 	CXXFLAGS="-std=c++11 -O3" \
 	LDFLAGS="-L$HOME/software/lib" \
 	CPPFLAGS="-I$HOME/software/include"
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 RUN make clean
 
 WORKDIR $HOME/software/PlotX
 RUN ./bootstrap
 RUN ./configure --prefix=$HOME/software
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 RUN make clean
 
 WORKDIR $HOME/software/PulsarX
@@ -132,7 +133,7 @@ RUN ./configure \
 	CXXFLAGS="-std=c++11 -O3" \
 	LDFLAGS="-L$HOME/software/lib" \
 	CPPFLAGS="-I$HOME/software/include"
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 RUN make clean
 
 WORKDIR $HOME/software/TransientX
@@ -142,7 +143,7 @@ RUN ./configure \
 	CXXFLAGS="-std=c++11 -O3" \
 	LDFLAGS="-L$HOME/software/lib" \
 	CPPFLAGS="-I$HOME/software/include"
-RUN make -j 8 && make install
+RUN make -j`nproc` && make install
 RUN make clean
 
 RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
@@ -154,4 +155,3 @@ RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
     echo "syntax on" >> $HOME/.vimrc
 
 WORKDIR $HOME
-ENTRYPOINT [ "/bin/bash" ]
