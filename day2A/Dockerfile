@@ -6,7 +6,13 @@ RUN useradd -ms /bin/bash ftsky
 ENV HOME=/home/ftsky
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+USER ftsky
+WORKDIR $HOME
+RUN mkdir software
+
+USER root
+
+RUN apt-get update && apt-get install -y \
     build-essential \
     casacore-data \
     casacore-dev \
@@ -35,12 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pytest \
     python3-setuptools \
     python3-sphinx \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
-
-USER ftsky
-WORKDIR $HOME
-RUN mkdir software
+    wget
 
 WORKDIR $HOME/software
 RUN git clone \
@@ -57,10 +58,14 @@ RUN git clone \
   make install -j`nproc`
 
 WORKDIR $HOME/software
-RUN wget --no-check-certificate https://casa.nrao.edu/download/distro/casa/release/rhel/casa-6.6.4-34-py3.10.el8.tar.xz && \
-  tar xf casa-6.6.4-34-py3.10.el8.tar.xz && \
-  rm -rf casa-6.6.4-34-py3.10.el8.tar.xz
-ENV PATH=$HOME/software/casa-6.6.4-34-py3.10.el8/bin:$PATH
+RUN wget --no-check-certificate https://casa.nrao.edu/download/distro/casa/release/rhel/casa-6.7.0-31-py3.10.el8.tar.xz && \
+  tar xf casa-6.7.0-31-py3.10.el8.tar.xz && \
+  rm -rf casa-6.7.0-31-py3.10.el8.tar.xz && \
+  mv casa-6.7.0-31-py3.10.el8 casa
+ENV PATH=$HOME/software/casa/bin:$PATH
+
+USER ftsky
+WORKDIR $HOME
 
 RUN mkdir $HOME/.casa
 RUN mkdir $HOME/.casa/data
@@ -75,6 +80,3 @@ RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
     echo "set pastetoggle=<F2>" >> $HOME/.vimrc && \
     echo "set hlsearch" >> $HOME/.vimrc && \
     echo "syntax on" >> $HOME/.vimrc
-
-WORKDIR $HOME
-ENTRYPOINT [ "/bin/bash" ]
