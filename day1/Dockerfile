@@ -25,8 +25,6 @@ ENV PSRCAT_FILE=$HOME/software/psrcat_tar/psrcat.db
 RUN apt-get update && apt-get install -y \
   autoconf \
   cmake \
-  eog \
-  evince \
   g++ \
   gfortran \
   git \
@@ -43,6 +41,7 @@ RUN apt-get update && apt-get install -y \
   make \
   mpich \
   pgplot5 \
+  vim \
   wget
 
 ARG MAMBA_USER=ftsky
@@ -64,8 +63,9 @@ RUN /usr/local/bin/_dockerfile_initialize_user_accounts.sh && \
     /usr/local/bin/_dockerfile_setup_root_prefix.sh
 
 USER ftsky
+
 SHELL ["/usr/local/bin/_dockerfile_shell.sh"]
-RUN micromamba install -y -n base --channel conda-forge python==3.10 && \
+RUN micromamba install -y -n base --channel conda-forge "python==3.10.17" && \
     micromamba clean --all --yes
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 
@@ -155,3 +155,4 @@ RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
     echo "syntax on" >> $HOME/.vimrc
 
 WORKDIR $HOME
+ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]
