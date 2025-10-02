@@ -41,6 +41,7 @@ RUN apt-get update && apt-get install -y \
     python3-pytest \
     python3-setuptools \
     python3-sphinx \
+    software-properties-common \
     wget
 
 WORKDIR $HOME/software
@@ -63,6 +64,10 @@ RUN wget --no-check-certificate https://casa.nrao.edu/download/distro/casa/relea
   rm -rf casa-6.7.0-31-py3.10.el8.tar.xz && \
   mv casa-6.7.0-31-py3.10.el8 casa
 ENV PATH=$HOME/software/casa/bin:$PATH
+
+RUN add-apt-repository -y ppa:cartavis-team/carta \
+    && apt-get update \
+    && apt-get install -y carta
 
 USER ftsky
 WORKDIR $HOME
