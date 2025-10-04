@@ -1,12 +1,10 @@
 FROM mambaorg/micromamba:2.3.2 AS micromamba
 FROM ubuntu:24.04
 
-SHELL ["/bin/bash", "-c"] 
-RUN useradd -ms /bin/bash ftsky
+SHELL ["/bin/bash", "-c"]
+ENV HOME=/home/ubuntu
 
-ENV HOME=/home/ftsky
-
-USER ftsky
+USER ubuntu
 WORKDIR $HOME
 RUN mkdir software
 
@@ -44,25 +42,27 @@ RUN apt-get update && apt-get install -y \
   vim \
   wget
 
-ARG MAMBA_USER=ftsky
-ARG MAMBA_USER_ID=1001
-ARG MAMBA_USER_GID=1001
+ARG MAMBA_USER=ubuntu
+ARG MAMBA_USER_ID=1000
+ARG MAMBA_USER_GID=1000
 ENV MAMBA_USER=$MAMBA_USER
 ENV MAMBA_NO_LOW_SPEED_LIMIT=1
 ENV MAMBA_ROOT_PREFIX=$HOME/software/conda
 ENV MAMBA_EXE=$HOME/software/bin/micromamba
 
 COPY --from=micromamba "/bin/micromamba" "$MAMBA_EXE"
-COPY --from=micromamba 	/usr/local/bin/_activate_current_env.sh /usr/local/bin/_activate_current_env.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_shell.sh /usr/local/bin/_dockerfile_shell.sh
-COPY --from=micromamba 	/usr/local/bin/_entrypoint.sh /usr/local/bin/_entrypoint.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_initialize_user_accounts.sh /usr/local/bin/_dockerfile_initialize_user_accounts.sh
-COPY --from=micromamba 	/usr/local/bin/_dockerfile_setup_root_prefix.sh /usr/local/bin/_dockerfile_setup_root_prefix.sh
+COPY --from=micromamba /usr/local/bin/_activate_current_env.sh /usr/local/bin/_activate_current_env.sh
+COPY --from=micromamba /usr/local/bin/_dockerfile_shell.sh /usr/local/bin/_dockerfile_shell.sh
+COPY --from=micromamba /usr/local/bin/_entrypoint.sh /usr/local/bin/_entrypoint.sh
+COPY --from=micromamba /usr/local/bin/_dockerfile_initialize_user_accounts.sh /usr/local/bin/_dockerfile_initialize_user_accounts.sh
+COPY --from=micromamba /usr/local/bin/_dockerfile_setup_root_prefix.sh /usr/local/bin/_dockerfile_setup_root_prefix.sh
 
 RUN /usr/local/bin/_dockerfile_initialize_user_accounts.sh && \
     /usr/local/bin/_dockerfile_setup_root_prefix.sh
 
-USER ftsky
+COPY --chown=$MAMBA_USER:$MAMBA_USER cands2csv.py $HOME/software/bin/cands2csv.py
+
+USER ubuntu
 
 SHELL ["/usr/local/bin/_dockerfile_shell.sh"]
 RUN micromamba install -y -n base --channel conda-forge "python==3.10.17" && \
@@ -146,6 +146,7 @@ RUN ./configure \
 RUN make -j`nproc` && make install
 RUN make clean
 
+WORKDIR $HOME
 RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
     echo "set tabstop=4" >> $HOME/.vimrc && \
     echo "set shiftwidth=4" >> $HOME/.vimrc && \
@@ -154,5 +155,5 @@ RUN echo "filetype plugin indent on" >> $HOME/.vimrc && \
     echo "set hlsearch" >> $HOME/.vimrc && \
     echo "syntax on" >> $HOME/.vimrc
 
-WORKDIR $HOME
+RUN echo "source /usr/local/bin/_activate_current_env.sh" >> $HOME/.bashrc
 ENTRYPOINT ["/usr/local/bin/_entrypoint.sh"]

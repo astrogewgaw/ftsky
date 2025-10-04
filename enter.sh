@@ -9,14 +9,17 @@ run() {
       --rm \
       --name day1 \
       --hostname day1 \
-      -e DISPLAY=$DISPLAY \
-      -v /tmp/.X11-unix:/tmp/.X11-unix \
+      --user 1000:1000 \
+      -e DISPLAY="$DISPLAY" \
+      --platform linux/amd64 \
+      --mount type=bind,src="$PWD/data",dst=/data \
+      --mount type=bind,src=/tmp/.X11-unix,dst=/tmp/.X11-unix \
       astrogewgaw/ftsky:day1 \
       /bin/bash
   fi
 }
 
 # Enter the container.
-enter() { docker exec -it day1 bash -i; }
+enter() { docker exec -it day1 /bin/bash -i; }
 
 run && enter
