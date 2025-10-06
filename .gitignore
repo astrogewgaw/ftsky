@@ -3,6 +3,7 @@
 *.img
 .vscode
 *.py[cod]
+TALK_files/
 data/*.fil
 __pycache__
 .mypy_cache
