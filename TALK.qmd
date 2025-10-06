@@ -1,0 +1,127 @@
+---
+format:
+  clean-revealjs:
+    incremental: true
+    footer: "FTSky 2025"
+title: "FTSky: Day 1"
+subtitle: "Searching for fast transients"
+author:
+  name: Ujjwal Panda
+  orcid: 0000-0002-2441-4174
+  email: upanda@ncra.tifr.res.in
+  affiliation: National Centre for Radio Astrophysics
+---
+
+## Dedispersion
+
+- Radio waves get _diffracted_ as they pass through ionised ISM.
+- Lower frequencies slow down, higher frequencies don't.
+- Measured by **dispersion measure** (**DM**): $$\mathrm{DM} = \int n_{e} dl.$$
+- Delay at a frequency $f$, w.r.t. highest frequency, $f_{h}$: $$\Delta t = \kappa \times \mathrm{DM} \times \left(\frac{1}{f^{2}} - \frac{1}{f_{h}^{2}} \right),$$ where $\kappa = 4148.8064239 \,\, \mathrm{ MHz^{2} \, cm^{3} \, pc^{−1} \, s}$ is the **dispersion constant**.
+
+## Dedispersion, contd.
+
+![An example burst from a (very bright) astrophysical source, showing the classic quadratic dispersion curve.](./figures/burst_example.png)
+
+**Fun exercise:** plot the dispersion curve at burst's DM, and see if it fits the burst's dynamic spectrum. If at a loss, check `prelim.ipynb`!
+
+## Dedispersion, contd.
+
+- Need to correct for effect of dispersion to search for bursts.
+- This is known as **dedispersion**.
+- Two main types: _incoherent_ and _coherent_ dedisperison.
+- For searches, use the former: correct for delay in each channel, and add.
+- But DM not known beforehand $\implies$ dedisperse at multiple DMs.
+
+## Dedispersion, contd.
+
+![Dedispersing data at multiple DM values, and the effect it has on the dynamic spectrum, as well as the dedispersed time series. This is known as a **DM search**.](./figures/dmsearch.gif)
+
+## Single pulse search
+
+- Now, we have a time series per DM value.
+- Search all time series for single pulses.
+- How? **Matched filtering**:
+  - Convolve time series with boxcar.
+  - If boxcar and pulse width _match_, S/N[^1] maximises.
+
+[^1]: S/N = signal-to-noise ratio.
+
+## Single pulse search, contd.
+
+![Convolving a boxcar through a time series. Note how the S/N is maximum when the boxcar passes the pulse. Multiple such boxcars are tried, and the boxcar whose width is closest to the pulse gives the maximum S/N.](./figures/matched_filter.gif)
+
+## Clustering via DBSCAN
+
+- Single pulse search generates _lots_ of candidates.
+- Same burst with different DM, width values among candidates.
+- As long as S/N above threshold, burst will show up, even if DM/width wrong.
+- So, need a way to get rid of spurious candidates.
+- Cluster similar candidates using **DBSCAN**.
+- **DBSCAN** = Density-based spatial clustering of applications with noise.
+- Identify cluster by neighbourhood points, and expand.
+
+## Clustering via DBSCAN, contd.
+
+![A step-by-step breakdown of DBSCAN.](./figures/dbscan.gif)
+
+## Step 1: Search for bursts using `TransientX`
+
+`TransientX` carries out all of the above steps in a single command:
+
+```{.bash code-line-numbers=1-14|3|4|7|13|14|1-14}
+transientx_fil \
+  -v \
+  -t 1 \
+  --fd 1 \
+  -l 2.0 \
+  --drop \
+  --thre 7 \
+  --maxw 0.1 \
+  --zapthre 3.0 \
+  --overlap 0.1 \
+  --snrloss 0.1 \
+  -z kadaneF 8 4 zdot \
+  --ddplan ddplan.txt \
+  -f example01.fil
+```
+
+- For more details on what each options does, check the help: `transientx_fil --help`.
+
+## Step 2: Check for bursts!
+
+::::{.colummns}
+
+:::{.column width=50%}
+![](./figures/transientx_example.png)
+:::
+
+:::{.column width=50%}
+While we are all search, think about:
+
+- Is this a pulsar or an FRB?
+- How do we confirm it is a pulsar?
+- How do we verify it is an FRB?
+- Do we need additional info?
+:::
+::::
+
+## Step 3: Extracting features, and classification.
+
+- Convert `TransientX` output into CSV:
+
+  ```{.bash}
+  cands2csv.py *.cands -f example01.fil
+  ```
+
+- Use `your_candmaker.py` to generate features:
+
+  ```{.bash}
+  your_candmaker.py -n 4 -g -1 -c candidates.csv
+  ```
+
+- Use `FETCH` to classifiy candidates:
+
+  ```{.bash}
+  fetch-predict -m a -g -1 -c .
+  ```

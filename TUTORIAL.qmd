@@ -1,0 +1,64 @@
+---
+format:
+  pdf:
+    colorlinks: true
+---
+
+# FTSky Day 1 Tutorial: Searching for FRBs
+
+Fast radio bursts (FRBs) are transient events in the radio sky. They are typically of the order of a few milliseconds, although bursts that are tens or hundreds of microseconds have also been detected from these sources. This makes searching for them a challenge. In today's tutorial, we will go through the usual procedure used to search for these bursts, and confront some of these challenges. We will be using [**`TransientX`**](https://github.com/ypmen/TransientX), a high performance program for transient search, along with [**`your`**](https://github.com/thepetabyteproject/your) and [**`FETCH`**](https://github.com/devanshkv/fetch) (a.k.a. Fast Extragalactic Transient Candidate Hunter) for burst classification.
+
+Before we jump to the actual instructions to run, let us briefly go the steps one follows when searching for transients. First, we get some data! The data used to search and study transients (such as FRBs and pulsars) comes in the form of a two-dimensional array of intensities, $I(\nu, t)$; the first dimension is frequency, $\nu$, while the second dimension is, of course, time, $t$. The data we will be using was recorded using the Giant Metrewave Radio Telescope (GMRT), using their Band 4 receivers, operating from 550 to 750 MHz. Let us try and visualise some data. The data is stored as a `SIGPROC` filterbank file: `example00.fil`. We can open the file and read the data in using `numpy`, and then plot it using `matplotlib`:
+
+![An example burst from a (very bright) astrophysical source, showing the classic quadratic dispersion curve.](./figures/burst_example.png){width=80%}
+
+The burst above can be seen quite clearly, since the source it is from is very bright. However, often all you will see when making plots similar to the one above is noise, since the bursts are dim and dispersed. In order to find them, we need to carry out the following steps:
+
+1. First, we have to correct for something called **dispersion**. As radio waves travel through the interstellar medium to get to us, they are _diffracted_ in the some way that visible light is diffracted when it goes through a prism. Higher frequencies go through faster, while lower frequencies slow down, introducing time delays between the same signal when received across a wide band of frequencies. If we are to successfully find these signals, we need to correct for these delays, using a process aptly called **dedispersion**. The delay is characterised by a quantity known as the **dispersion measure** (**DM**), which is defined as the total electron density along a particular line-of-sight, or: $$\mathrm{DM} = \int n_{e} dl,$$ where $n_{e}$ is the electron density. Then, the delay at a particular frequency $f$, with respect to the highest frequency in the band, $f_{h}$, is given by: $$\Delta t = \kappa \times \mathrm{DM} \times \left(\frac{1}{f^{2}} - \frac{1}{f_{h}^{2}} \right),$$ where $\kappa = 4148.8064239 \,\, \mathrm{ MHz^{2} \, cm^{3} \, pc^{−1} \, s}$ is known as the **dispersion constant**. These are the time delays we correct for when dedispersing the data. However, note that there is an important thing missing: we don't know what DM to use! Therefore, we need to search for a large range of DMs. For each DM, we collapse all frequency channels, and generate a time series.
+
+2. Now, we need a method to search for pulses in our data. This is done using the process of **matched filtering**: we convolve boxcars of different widths with the time series obtained via dedispersion, and the **signal-to-noise ratio** (**S/N**) is maximum when the width of the boxcar _matches_ the width of a pulse. This gives a large number of possible _candidates_; each has an arrival time, a DM, an S/N, and a width.
+
+3. However, the number of candidates from a search like this are often too many to have a look at by eye. Thus, we start eliminating spurious candidates. An easy way to reduce the number of candidates is to realise that a single pulse at a particular DM with appear in the candidate list at a bunch of different DM and width values, albeit at different S/Ns. Thus, we cluster candidates at the same arrival time, but with close enough values of DM, width, etc. `TransientX` uses the DBSCAN algorithm for clustering candidates.
+
+`TransientX` carries out all of the above steps in a single command:
+
+```bash
+transientx_fil \
+  -v \
+  -t 1 \
+  --fd 1 \
+  -l 2.0 \
+  --drop \
+  --thre 7 \
+  --maxw 0.1 \
+  --zapthre 3.0 \
+  --overlap 0.1 \
+  --snrloss 0.1 \
+  -z kadaneF 8 4 zdot \
+  --ddplan ddplan.txt \
+  -f example01.fil
+```
+
+After you run the above command, `TransientX` will dedisperse the data across a range of DM values, following a **dedispersion plan** (which can be found in `ddplan.txt`), after which it will search for single pulses, cluster them, and, finally, return a list. This list is stored in in a `*.cands` file, which can be opened by your usual text editors (`nano`, `vim`, and others). `TransientX` will also store a PNG file for each candidate; an example can be seen below:
+
+![Plot generated by `TransientX` for one of the many candidates detected from `example01.fil`.](./figures/transientx_example.png)
+
+This list of candidates can be huge; it is not unusual to get millions of candidates from just one file. Thus, classifiers that utilise machine learning algorithms are often used to sift through these candidates first, after which actual human beings (such as yourself) can have a final look. The classifier we will be using in this tutorial is `FETCH`, which is a CNN-based binary classifier.
+
+::: {.callout-note}
+## Convolutional Neural Networks
+
+Neural networks are a subset of machine learning, and are at the heart of deep learning algorithms. They consist of node layers, containing an input layer, one or several hidden layers, and then an output layer. Each node connects to another, and has a weight and threshold associated with it. If the output of any node is above its specified threshold value, it is activated, and sends data to the next layer of the network. Otherwise, no data is passed. This draws from how neurons in our brains work, since they also have a threshold potential, and a neuron will only transmit a signal when that potential is crossed.
+
+Convolutional neural networks consist of a convolutional layer, one or several pooling layers, and then a final fully-connected (FC) layer. The first layer is the most crucial: it uses a kernel to identify features in an image, by convolving the kernel with the input data. This creates what is known as a feature map. This is then passed on to the subsequent layers in the neural network. CNNs are great at identifying features in audio, visual, or video inputs.
+:::
+
+In order to use `FETCH` to classify candidates in our list, we first need to generate the features it uses: the dedispersed dynamic spectrum, and the DM transform. `FETCH` uses two CNNs, one for each feature, and then finally combines the outputs from both to generate a final probability. This probability indicates how probable it is that a particular candidate is a burst from an actual transient; any candidate with a probability greater than 50\% is labeled an FRB. We first convert our `*.cands` to a CSV file that can be read by `your`, which will create these features for us. Then, we use `your`'s `your_candmaker.py` program to generate the features, which are stored as HDF5 files, with a `*.h5` extension. Then, we finally ask `FETCH` to classify the candidates:
+
+```bash
+cands2csv.py *.cands -f example01.fil
+your_candmaker.py -n 4 -g -1 -c candidates.csv
+fetch-predict -m a -g -1 -c .
+```
+
+Note that creating features is quite time consuming, since you will be using the CPU on your laptop. Thus, you can try using `FETCH` with some sample HDF5 files instead, which should be in the `/data/h5files` directory. These features were generated from `example02.fil`, which you can find in the `/data` directory.
